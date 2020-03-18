@@ -158,95 +158,121 @@ function services_radvd_configure($blacklist = array()) {
 				$radvdconf .= "\tAdvOtherConfigFlag on;\n";
 				break;
 		}
-		$radvdconf .= "\tprefix {$subnetv6}/{$ifcfgsnv6} {\n";
-		if ($racarpif == true) {
-			$radvdconf .= "\t\tDeprecatePrefix off;\n";
-		} else {
-			$radvdconf .= "\t\tDeprecatePrefix on;\n";
-		}
-		switch ($dhcpv6ifconf['ramode']) {
-			case "managed":
-				$radvdconf .= "\t\tAdvOnLink on;\n";
-				$radvdconf .= "\t\tAdvAutonomous off;\n";
-				$radvdconf .= "\t\tAdvRouterAddr on;\n";
-				break;
-			case "router":
-				$radvdconf .= "\t\tAdvOnLink off;\n";
-				$radvdconf .= "\t\tAdvAutonomous off;\n";
-				$radvdconf .= "\t\tAdvRouterAddr on;\n";
-				break;
-			case "stateless_dhcp":
-			case "assist":
-				$radvdconf .= "\t\tAdvOnLink on;\n";
-				$radvdconf .= "\t\tAdvAutonomous on;\n";
-				$radvdconf .= "\t\tAdvRouterAddr on;\n";
-				break;
-			case "unmanaged":
-				$radvdconf .= "\t\tAdvOnLink on;\n";
-				$radvdconf .= "\t\tAdvAutonomous on;\n";
-				$radvdconf .= "\t\tAdvRouterAddr on;\n";
-				break;
-		}
-
-		if (is_numericint($dhcpv6ifconf['ravalidlifetime'])) {
-		  $radvdconf .= "\t\tAdvValidLifetime {$dhcpv6ifconf['ravalidlifetime']};\n";
-		} else {
-		  $radvdconf .= "\t\tAdvValidLifetime 86400;\n";
-		}
-
-		if (is_numericint($dhcpv6ifconf['rapreferredlifetime'])) {
-		  $radvdconf .= "\t\tAdvPreferredLifetime {$dhcpv6ifconf['rapreferredlifetime']};\n";
-		} else {
-		  $radvdconf .= "\t\tAdvPreferredLifetime 14400;\n";
-		}
-
-		$radvdconf .= "\t};\n";
-
+		/* If there are subnets defined, do not generate prefix for interface subnet, but use the user-specified subnets instead */
 		if (is_array($dhcpv6ifconf['subnets']['item'])) {
-			foreach ($dhcpv6ifconf['subnets']['item'] as $subnet) {
-				if (is_subnetv6($subnet)) {
-					$radvdconf .= "\tprefix {$subnet} {\n";
+		foreach ($dhcpv6ifconf['subnets']['item'] as $dhcpv6subnet) {
+				$radvdconf .= "\tprefix {$dhcpv6subnet} {\n";
+				if ($racarpif == true) {
+					$radvdconf .= "\t\tDeprecatePrefix off;\n";
+				} else {
 					$radvdconf .= "\t\tDeprecatePrefix on;\n";
-					switch ($dhcpv6ifconf['ramode']) {
-						case "managed":
-							$radvdconf .= "\t\tAdvOnLink on;\n";
-							$radvdconf .= "\t\tAdvAutonomous off;\n";
-							$radvdconf .= "\t\tAdvRouterAddr on;\n";
-							break;
-						case "router":
-							$radvdconf .= "\t\tAdvOnLink off;\n";
-							$radvdconf .= "\t\tAdvAutonomous off;\n";
-							$radvdconf .= "\t\tAdvRouterAddr on;\n";
-							break;
-						case "assist":
-							$radvdconf .= "\t\tAdvOnLink on;\n";
-							$radvdconf .= "\t\tAdvAutonomous on;\n";
-							$radvdconf .= "\t\tAdvRouterAddr on;\n";
-							break;
-						case "unmanaged":
-							$radvdconf .= "\t\tAdvOnLink on;\n";
-							$radvdconf .= "\t\tAdvAutonomous on;\n";
-							$radvdconf .= "\t\tAdvRouterAddr on;\n";
-							break;
-					}
-					$radvdconf .= "\t};\n";
 				}
+				switch($dhcpv6ifconf['ramode']) {
+					case "managed":
+						$radvdconf .= "\t\tAdvOnLink on;\n";
+						$radvdconf .= "\t\tAdvAutonomous off;\n";
+						$radvdconf .= "\t\tAdvRouterAddr on;\n";
+						break;
+					case "router":
+						$radvdconf .= "\t\tAdvOnLink off;\n";
+						$radvdconf .= "\t\tAdvAutonomous off;\n";
+						$radvdconf .= "\t\tAdvRouterAddr on;\n";
+						break;
+					case "stateless_dhcp":
+					case "assist":
+						$radvdconf .= "\t\tAdvOnLink on;\n";
+						$radvdconf .= "\t\tAdvAutonomous on;\n";
+						$radvdconf .= "\t\tAdvRouterAddr on;\n";
+						break;
+					case "unmanaged":
+						$radvdconf .= "\t\tAdvOnLink on;\n";
+						$radvdconf .= "\t\tAdvAutonomous on;\n";
+						$radvdconf .= "\t\tAdvRouterAddr on;\n";
+						break;
+				}
+				if (is_numericint($dhcpv6ifconf['ravalidlifetime'])) {
+				  $radvdconf .= "\t\tAdvValidLifetime {$dhcpv6ifconf['ravalidlifetime']};\n";
+				} else {
+				  $radvdconf .= "\t\tAdvValidLifetime 14400;\n";
+				}
+				if (is_numericint($dhcpv6ifconf['rapreferredlifetime'])) {
+				  $radvdconf .= "\t\tAdvPreferredLifetime {$dhcpv6ifconf['rapreferredlifetime']};\n";
+				} else {
+				  $radvdconf .= "\t\tAdvPreferredLifetime 14400;\n";
+				}
+				$radvdconf .= "\t};\n";
 			}
 		}
-		$radvdconf .= "\troute ::/0 {\n";
-		switch ($dhcpv6ifconf['rapriority']) {
-			case "low":
-				$radvdconf .= "\t\tAdvRoutePreference low;\n";
-				break;
-			case "high":
-				$radvdconf .= "\t\tAdvRoutePreference high;\n";
-				break;
-			default:
-				$radvdconf .= "\t\tAdvRoutePreference medium;\n";
-				break;
+
+		/* There are no user-specified subnets, so generate prefix for the interface subnet only */
+		else {
+			$radvdconf .= "\tprefix {$subnetv6}/{$ifcfgsnv6} {\n";
+			if ($racarpif == true) {
+				$radvdconf .= "\t\tDeprecatePrefix off;\n";
+			} else {
+				$radvdconf .= "\t\tDeprecatePrefix on;\n";
+			}
+			switch ($dhcpv6ifconf['ramode']) {
+				case "managed":
+					$radvdconf .= "\t\tAdvOnLink on;\n";
+					$radvdconf .= "\t\tAdvAutonomous off;\n";
+					$radvdconf .= "\t\tAdvRouterAddr on;\n";
+					break;
+				case "router":
+					$radvdconf .= "\t\tAdvOnLink off;\n";
+					$radvdconf .= "\t\tAdvAutonomous off;\n";
+					$radvdconf .= "\t\tAdvRouterAddr on;\n";
+					break;
+				case "stateless_dhcp":
+				case "assist":
+					$radvdconf .= "\t\tAdvOnLink on;\n";
+					$radvdconf .= "\t\tAdvAutonomous on;\n";
+					$radvdconf .= "\t\tAdvRouterAddr on;\n";
+					break;
+				case "unmanaged":
+					$radvdconf .= "\t\tAdvOnLink on;\n";
+					$radvdconf .= "\t\tAdvAutonomous on;\n";
+					$radvdconf .= "\t\tAdvRouterAddr on;\n";
+					break;
+			}
+			if (is_numericint($dhcpv6ifconf['ravalidlifetime'])) {
+			  $radvdconf .= "\t\tAdvValidLifetime {$dhcpv6ifconf['ravalidlifetime']};\n";
+			} else {
+			  $radvdconf .= "\t\tAdvValidLifetime 86400;\n";
+			}
+			if (is_numericint($dhcpv6ifconf['rapreferredlifetime'])) {
+			  $radvdconf .= "\t\tAdvPreferredLifetime {$dhcpv6ifconf['rapreferredlifetime']};\n";
+			} else {
+			  $radvdconf .= "\t\tAdvPreferredLifetime 14400;\n";
+			}
+			$radvdconf .= "\t};\n";
 		}
-		$radvdconf .= "\t\tRemoveRoute on;\n";
-		$radvdconf .= "\t};\n";
+		/* If there are routes defined, do not generate a default route, but use the user-specified routes instead */
+		if (is_array($dhcpv6ifconf['routes']['item'])) {
+			foreach ($dhcpv6ifconf['routes']['item'] as $dhcpv6route) {
+				$radvdconf .= "\troute " . $dhcpv6route['destination'] . " {\n";
+				$radvdconf .= "\t\tRemoveRoute on;\n";
+				$radvdconf .= "\t\tAdvRoutePreference " . $dhcpv6route['priority'] . ";\n";
+				$radvdconf .= "\t};\n";
+			}
+		}
+		/* There are no user-specified routes, so generate a default route entry */
+		else {
+			$radvdconf .= "\troute ::/0 {\n";
+			switch ($dhcpv6ifconf['rapriority']) {
+				case "low":
+					$radvdconf .= "\t\tAdvRoutePreference low;\n";
+					break;
+				case "high":
+					$radvdconf .= "\t\tAdvRoutePreference high;\n";
+					break;
+				default:
+					$radvdconf .= "\t\tAdvRoutePreference medium;\n";
+					break;
+			}
+			$radvdconf .= "\t\tRemoveRoute on;\n";
+			$radvdconf .= "\t};\n";
+		}
 
 		/* add DNS servers */
 		if ($dhcpv6ifconf['radvd-dns'] != 'disabled') {
